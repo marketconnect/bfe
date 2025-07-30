@@ -43,26 +43,30 @@ func main() {
 
 	router.Use(cors.New(config))
 
-	// Public routes
-	router.POST("/login", handler.LoginHandler)
-
-	// Authenticated routes
-	authRoutes := router.Group("/")
-	authRoutes.Use(api.AuthMiddleware(cfg.JWTSecretKey))
+	apiV1 := router.Group("/api/v1")
 	{
-		// User routes
-		authRoutes.GET("/files", handler.ListFilesHandler)
+		// Public auth route
+		authGroup := apiV1.Group("/auth")
+		authGroup.POST("/login", handler.LoginHandler)
 
-		// Admin routes
-		adminRoutes := authRoutes.Group("/admin")
-		adminRoutes.Use(api.AdminMiddleware())
+		// Authenticated routes
+		authedRoutes := apiV1.Group("/")
+		authedRoutes.Use(api.AuthMiddleware(cfg.JWTSecretKey))
 		{
-			adminRoutes.PUT("/self", handler.UpdateAdminSelfHandler)
-			adminRoutes.GET("/users", handler.ListUsersHandler)
-			adminRoutes.POST("/users", handler.CreateUserHandler)
-			adminRoutes.DELETE("/users/:id", handler.DeleteUserHandler)
-			adminRoutes.POST("/permissions", handler.AssignPermissionHandler)
-			adminRoutes.DELETE("/permissions/:id", handler.RevokePermissionHandler)
+			// User routes
+			authedRoutes.GET("/files", handler.ListFilesHandler)
+
+			// Admin routes
+			adminRoutes := authedRoutes.Group("/admin")
+			adminRoutes.Use(api.AdminMiddleware())
+			{
+				adminRoutes.PUT("/self", handler.UpdateAdminSelfHandler)
+				adminRoutes.GET("/users", handler.ListUsersHandler)
+				adminRoutes.POST("/users", handler.CreateUserHandler)
+				adminRoutes.DELETE("/users/:id", handler.DeleteUserHandler)
+				adminRoutes.POST("/permissions", handler.AssignPermissionHandler)
+				adminRoutes.DELETE("/permissions/:id", handler.RevokePermissionHandler)
+			}
 		}
 	}
 
