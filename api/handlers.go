@@ -222,30 +222,42 @@ func (h *Handler) ListFilesHandler(c *gin.Context) {
 		return
 	}
 
-	// This logic assumes a user has permissions to one or more root prefixes.
-	// The requested path must be a sub-path of one of these permissions.
 	requestedPath := c.Query("path")
-	if requestedPath != "" && !strings.HasSuffix(requestedPath, "/") {
+	// If user is at root, show all their permitted folders instead of just the first one.
+	if requestedPath == "" || requestedPath == "/" {
+		var rootFolders []string
+		for _, p := range permissions {
+			rootFolders = append(rootFolders, p.FolderPrefix)
+		}
+		c.JSON(http.StatusOK, models.ListFilesResponse{
+			Path:    "/",
+			Folders: rootFolders,
+			Files:   []models.FileWithURL{},
+		})
+		return
+	}
+
+	// Normalize path for security checks
+	if !strings.HasSuffix(requestedPath, "/") {
 		requestedPath += "/"
 	}
 
-	var finalPrefix string
+	// Check if the user is allowed to access the requested path
 	isAllowed := false
 	for _, p := range permissions {
 		if strings.HasPrefix(requestedPath, p.FolderPrefix) {
-			finalPrefix = requestedPath
 			isAllowed = true
 			break
 		}
 	}
 
-	// If no path is requested, or the requested path is not a sub-path,
-	// default to the first permission's root.
 	if !isAllowed {
-		finalPrefix = permissions[0].FolderPrefix
+		c.JSON(http.StatusForbidden, gin.H{"error": "access denied"})
+		return
 	}
 
-	listOutput, err := h.StorageClient.ListObjects(finalPrefix, "/")
+	// If allowed, proceed to list objects
+	listOutput, err := h.StorageClient.ListObjects(requestedPath, "/")
 	if err != nil {
 		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to list files from storage service", "details": err.Error()})
 		return
@@ -253,10 +265,6 @@ func (h *Handler) ListFilesHandler(c *gin.Context) {
 
 	var filesWithURLs []models.FileWithURL
 	for _, key := range listOutput.Files {
-		// This check fixes the bug where the folder itself appears as an empty file entry.
-		if key == finalPrefix {
-			continue
-		}
 		url, err := h.StorageClient.GeneratePresignedURL(key, 3600) // 1 hour expiry
 		if err != nil {
 			c.Error(err) // Log error
@@ -266,7 +274,7 @@ func (h *Handler) ListFilesHandler(c *gin.Context) {
 	}
 
 	response := models.ListFilesResponse{
-		Path:    finalPrefix,
+		Path:    requestedPath,
 		Folders: listOutput.Folders,
 		Files:   filesWithURLs,
 	}
