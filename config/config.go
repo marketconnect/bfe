@@ -16,6 +16,8 @@ type Config struct {
 	DBPort            string
 	JWTSecretKey      string
 	StorageServiceURL string
+	AdminUser         string
+	AdminPassword     string
 }
 
 func Load() *Config {
@@ -32,6 +34,8 @@ func Load() *Config {
 		DBPort:            getEnv("DB_PORT", "5432"),
 		JWTSecretKey:      getEnv("JWT_SECRET_KEY", ""),
 		StorageServiceURL: getEnv("STORAGE_SERVICE_URL", ""),
+		AdminUser:         getEnv("ADMIN_USER", "admin"),
+		AdminPassword:     getEnv("ADMIN_PASSWORD", ""),
 	}
 }
 

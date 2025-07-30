@@ -2,6 +2,7 @@ package api
 
 import (
 	"net/http"
+	"strconv"
 
 	"github.com/marketconnect/bfe/auth"
 	"github.com/marketconnect/bfe/db"
@@ -74,6 +75,75 @@ func (h *Handler) CreateUserHandler(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{"message": "user created successfully", "user_id": user.ID})
 }
 
+func (h *Handler) ListUsersHandler(c *gin.Context) {
+	users, err := h.Store.GetAllUsers()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "could not retrieve users", "details": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, users)
+}
+
+func (h *Handler) DeleteUserHandler(c *gin.Context) {
+	userIDStr := c.Param("id")
+	userID, err := strconv.ParseUint(userIDStr, 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user ID"})
+		return
+	}
+
+	if err := h.Store.DeleteUser(uint(userID)); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete user", "details": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "user deleted successfully"})
+}
+
+func (h *Handler) UpdateAdminSelfHandler(c *gin.Context) {
+	adminID, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	var req models.UpdateAdminRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return
+	}
+
+	// Fetch the current admin user
+	adminUser, err := h.Store.GetUserByID(adminID.(uint))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "could not find admin user"})
+		return
+	}
+
+	// Update username if provided
+	if req.Username != "" {
+		adminUser.Username = req.Username
+	}
+
+	// Update password if provided
+	if req.Password != "" {
+		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to hash password"})
+			return
+		}
+		adminUser.PasswordHash = string(hashedPassword)
+	}
+
+	if err := h.Store.UpdateUser(adminUser); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update admin account", "details": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "admin account updated successfully"})
+}
+
 func (h *Handler) AssignPermissionHandler(c *gin.Context) {
 	var req models.AssignPermissionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -92,6 +162,22 @@ func (h *Handler) AssignPermissionHandler(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "permission assigned successfully"})
+}
+
+func (h *Handler) RevokePermissionHandler(c *gin.Context) {
+	permissionIDStr := c.Param("id")
+	permissionID, err := strconv.ParseUint(permissionIDStr, 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid permission ID"})
+		return
+	}
+
+	if err := h.Store.RevokePermission(uint(permissionID)); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to revoke permission", "details": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "permission revoked successfully"})
 }
 
 // User Handlers

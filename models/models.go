@@ -12,7 +12,7 @@ type User struct {
 
 type UserPermission struct {
 	gorm.Model
-	UserID       uint   `gorm:"not null"`
+	UserID       uint   `gorm:"not null;index"`
 	FolderPrefix string `gorm:"not null"`
 }
 
@@ -30,4 +30,9 @@ type CreateUserRequest struct {
 type AssignPermissionRequest struct {
 	UserID       uint   `json:"user_id" binding:"required"`
 	FolderPrefix string `json:"folder_prefix" binding:"required"`
+}
+
+type UpdateAdminRequest struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
 }
