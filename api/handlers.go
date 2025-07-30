@@ -3,6 +3,7 @@ package api
 import (
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/marketconnect/bfe/auth"
 	"github.com/marketconnect/bfe/db"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"golang.org/x/crypto/bcrypt"
+	"gorm.io/gorm"
 )
 
 type Handler struct {
@@ -122,12 +124,23 @@ func (h *Handler) UpdateAdminSelfHandler(c *gin.Context) {
 	}
 
 	// Update username if provided
-	if req.Username != "" {
+	if req.Username != "" && req.Username != adminUser.Username {
+		// Check if the new username is already taken by another user
+		existingUser, err := h.Store.GetUserByUsername(req.Username)
+		if err != nil && err != gorm.ErrRecordNotFound {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "database error while checking username"})
+			return
+		}
+		// if err is nil, it means a user was found
+		if err == nil && existingUser != nil {
+			c.JSON(http.StatusConflict, gin.H{"error": "username is already taken"})
+			return
+		}
 		adminUser.Username = req.Username
 	}
 
 	// Update password if provided
-	if req.Password != "" {
+	if req.Password != "" && req.Password != adminUser.PasswordHash {
 		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to hash password"})
@@ -180,6 +193,16 @@ func (h *Handler) RevokePermissionHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "permission revoked successfully"})
 }
 
+func (h *Handler) ListAllFoldersHandler(c *gin.Context) {
+	folders, err := h.StorageClient.ListAllFolders()
+	if err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to list folders from storage service", "details": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"folders": folders})
+}
+
 // User Handlers
 func (h *Handler) ListFilesHandler(c *gin.Context) {
 	userID, exists := c.Get("userID")
@@ -195,36 +218,58 @@ func (h *Handler) ListFilesHandler(c *gin.Context) {
 	}
 
 	if len(permissions) == 0 {
-		c.JSON(http.StatusOK, gin.H{"files": []string{}})
+		c.JSON(http.StatusOK, models.ListFilesResponse{Path: "/", Folders: []string{}, Files: []models.FileWithURL{}})
 		return
 	}
 
-	// For simplicity, we use the first permission. A real app might handle multiple.
-	prefix := permissions[0].FolderPrefix
+	// This logic assumes a user has permissions to one or more root prefixes.
+	// The requested path must be a sub-path of one of these permissions.
+	requestedPath := c.Query("path")
+	if requestedPath != "" && !strings.HasSuffix(requestedPath, "/") {
+		requestedPath += "/"
+	}
 
-	objectKeys, err := h.StorageClient.ListObjects(prefix)
+	var finalPrefix string
+	isAllowed := false
+	for _, p := range permissions {
+		if strings.HasPrefix(requestedPath, p.FolderPrefix) {
+			finalPrefix = requestedPath
+			isAllowed = true
+			break
+		}
+	}
+
+	// If no path is requested, or the requested path is not a sub-path,
+	// default to the first permission's root.
+	if !isAllowed {
+		finalPrefix = permissions[0].FolderPrefix
+	}
+
+	listOutput, err := h.StorageClient.ListObjects(finalPrefix, "/")
 	if err != nil {
 		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to list files from storage service", "details": err.Error()})
 		return
 	}
 
-	type FileWithURL struct {
-		Key string `json:"key"`
-		URL string `json:"url"`
-	}
-
-	var filesWithURLs []FileWithURL
-	// This can be slow. For production, consider a more efficient approach,
-	// like generating URLs on the fly on the client or a dedicated endpoint.
-	for _, key := range objectKeys {
-		url, err := h.StorageClient.GeneratePresignedURL(key, 3600) // 1 hour expiry
-		if err != nil {
-			// Log the error but continue, so one failed URL doesn't break the whole list
-			c.Error(err)
+	var filesWithURLs []models.FileWithURL
+	for _, key := range listOutput.Files {
+		// This check fixes the bug where the folder itself appears as an empty file entry.
+		if key == finalPrefix {
 			continue
 		}
-		filesWithURLs = append(filesWithURLs, FileWithURL{Key: key, URL: url})
+		url, err := h.StorageClient.GeneratePresignedURL(key, 3600) // 1 hour expiry
+		if err != nil {
+			c.Error(err) // Log error
+			continue
+		}
+		filesWithURLs = append(filesWithURLs, models.FileWithURL{Key: key, URL: url})
 	}
 
-	c.JSON(http.StatusOK, gin.H{"files": filesWithURLs})
+	response := models.ListFilesResponse{
+		Path:    finalPrefix,
+		Folders: listOutput.Folders,
+		Files:   filesWithURLs,
+	}
+
+	c.JSON(http.StatusOK, response)
 }

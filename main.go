@@ -65,6 +65,7 @@ func main() {
 				adminRoutes.POST("/users", handler.CreateUserHandler)
 				adminRoutes.DELETE("/users/:id", handler.DeleteUserHandler)
 				adminRoutes.POST("/permissions", handler.AssignPermissionHandler)
+				adminRoutes.GET("/storage/folders", handler.ListAllFoldersHandler)
 				adminRoutes.DELETE("/permissions/:id", handler.RevokePermissionHandler)
 			}
 		}

@@ -17,8 +17,19 @@ type UserPermission struct {
 }
 
 type LoginRequest struct {
-	Username string `json:"username" binding:"required"`
-	Password string `json:"password" binding:"required"`
+	Username string `json:"username"`
+	Password string `json:"password"`
+}
+
+type FileWithURL struct {
+	Key string `json:"key"`
+	URL string `json:"url"`
+}
+
+type ListFilesResponse struct {
+	Path    string        `json:"path"`
+	Folders []string      `json:"folders"`
+	Files   []FileWithURL `json:"files"`
 }
 
 type CreateUserRequest struct {

@@ -1,50 +1,36 @@
---- a/bfe/main.go
-+++ b/bfe/main.go
-@@ -34,27 +34,29 @@
+--- a/bfe/api/handlers.go
++++ b/bfe/api/handlers.go
+@@ -8,6 +8,7 @@
+ 	"github.com/marketconnect/bfe/models"
+ 	"github.com/marketconnect/bfe/storage_client"
  
- 	router.Use(cors.New(config))
- 
--	// Public routes
--	router.POST("/login", handler.LoginHandler)
-+	apiV1 := router.Group("/api/v1")
-+	{
-+		// Public auth route
-+		authGroup := apiV1.Group("/auth")
-+		authGroup.POST("/login", handler.LoginHandler)
- 
--	// Authenticated routes
--	authRoutes := router.Group("/")
--	authRoutes.Use(api.AuthMiddleware(cfg.JWTSecretKey))
--	{
--		// User routes
--		authRoutes.GET("/files", handler.ListFilesHandler)
-+		// Authenticated routes
-+		authedRoutes := apiV1.Group("/")
-+		authedRoutes.Use(api.AuthMiddleware(cfg.JWTSecretKey))
-+		{
-+			// User routes
-+			authedRoutes.GET("/files", handler.ListFilesHandler)
- 
--		// Admin routes
--		adminRoutes := authRoutes.Group("/admin")
--		adminRoutes.Use(api.AdminMiddleware())
--		{
--			adminRoutes.PUT("/self", handler.UpdateAdminSelfHandler)
--			adminRoutes.GET("/users", handler.ListUsersHandler)
--			adminRoutes.POST("/users", handler.CreateUserHandler)
--			adminRoutes.DELETE("/users/:id", handler.DeleteUserHandler)
--			adminRoutes.POST("/permissions", handler.AssignPermissionHandler)
--			adminRoutes.DELETE("/permissions/:id", handler.RevokePermissionHandler)
-+			// Admin routes
-+			adminRoutes := authedRoutes.Group("/admin")
-+			adminRoutes.Use(api.AdminMiddleware())
-+			{
-+				adminRoutes.PUT("/self", handler.UpdateAdminSelfHandler)
-+				adminRoutes.GET("/users", handler.ListUsersHandler)
-+				adminRoutes.POST("/users", handler.CreateUserHandler)
-+				adminRoutes.DELETE("/users/:id", handler.DeleteUserHandler)
-+				adminRoutes.POST("/permissions", handler.AssignPermissionHandler)
-+				adminRoutes.DELETE("/permissions/:id", handler.RevokePermissionHandler)
-+			}
- 		}
++	"gorm.io/gorm"
+ 	"github.com/gin-gonic/gin"
+ 	"golang.org/x/crypto/bcrypt"
+ )
+@@ -118,12 +119,23 @@
  	}
+ 
+ 	// Update username if provided
+-	if req.Username != "" {
++	if req.Username != "" && req.Username != adminUser.Username {
++		// Check if the new username is already taken by another user
++		existingUser, err := h.Store.GetUserByUsername(req.Username)
++		if err != nil && err != gorm.ErrRecordNotFound {
++			c.JSON(http.StatusInternalServerError, gin.H{"error": "database error while checking username"})
++			return
++		}
++		// if err is nil, it means a user was found
++		if err == nil && existingUser != nil {
++			c.JSON(http.StatusConflict, gin.H{"error": "username is already taken"})
++			return
++		}
+ 		adminUser.Username = req.Username
+ 	}
+ 
+ 	// Update password if provided
+-	if req.Password != "" {
++	if req.Password != "" && req.Password != adminUser.PasswordHash {
+ 		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+ 		if err != nil {
+ 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to hash password"})
