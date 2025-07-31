@@ -59,7 +59,7 @@ func (s *GormStore) GetUserByUsername(username string) (*models.User, error) {
 
 func (s *GormStore) GetAllUsers() ([]models.User, error) {
 	var users []models.User
-	err := s.DB.Preload("Permissions").Where("is_admin = ?", false).Find(&users).Error
+	err := s.DB.Unscoped().Preload("Permissions").Where("is_admin = ?", false).Find(&users).Error
 	return users, err
 }
 
