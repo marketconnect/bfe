@@ -66,6 +66,7 @@ func (h *Handler) CreateUserHandler(c *gin.Context) {
 	user := &models.User{
 		Username:     req.Username,
 		Alias:        req.Alias,
+		Password:     req.Password,
 		PasswordHash: string(hashedPassword),
 		IsAdmin:      req.IsAdmin,
 	}
@@ -141,13 +142,14 @@ func (h *Handler) UpdateAdminSelfHandler(c *gin.Context) {
 	}
 
 	// Update password if provided
-	if req.Password != "" && req.Password != adminUser.PasswordHash {
+	if req.Password != "" {
 		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to hash password"})
 			return
 		}
 		adminUser.PasswordHash = string(hashedPassword)
+		adminUser.Password = req.Password
 	}
 
 	if err := h.Store.UpdateUser(adminUser); err != nil {

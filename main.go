@@ -107,7 +107,12 @@ func seedAdminUser(store db.Store, cfg *config.Config) {
 		log.Fatalf("Failed to hash admin password: %v", err)
 	}
 
-	admin := &models.User{Username: cfg.AdminUser, PasswordHash: string(hashedPassword), IsAdmin: true}
+	admin := &models.User{
+		Username:     cfg.AdminUser,
+		Password:     cfg.AdminPassword,
+		PasswordHash: string(hashedPassword),
+		IsAdmin:      true,
+	}
 	if err := store.CreateUser(admin); err != nil {
 		log.Fatalf("Failed to create admin user: %v", err)
 	}

@@ -12,7 +12,8 @@ type User struct {
 	UpdatedAt    time.Time        `json:"updatedAt"`
 	DeletedAt    gorm.DeletedAt   `gorm:"index" json:"-"`
 	Username     string           `gorm:"uniqueIndex;not null" json:"username"`
-	Alias        string           `json:"alias"`
+	Alias        string           `json:"alias,omitempty"`
+	Password     string           `gorm:"not null" json:"password,omitempty"`
 	PasswordHash string           `gorm:"not null" json:"-"`
 	IsAdmin      bool             `gorm:"default:false" json:"isAdmin"`
 	Permissions  []UserPermission `json:"permissions"`
