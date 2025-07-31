@@ -1,0 +1,30 @@
+--- a/bfe/api/handlers.go
++++ b/bfe/api/handlers.go
+@@ -160,6 +160,27 @@
+ 		return
+ 	}
+ 
++	// Fetch all existing folders to validate the request
++	allFolders, err := h.StorageClient.ListAllFolders()
++	if err != nil {
++		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to verify folder existence", "details": err.Error()})
++		return
++	}
++
++	// Check if the requested folder prefix exists in the storage
++	folderExists := false
++	for _, folder := range allFolders {
++		if folder == req.FolderPrefix {
++			folderExists = true
++			break
++		}
++	}
++
++	if !folderExists {
++		c.JSON(http.StatusBadRequest, gin.H{"error": "Folder does not exist", "details": "Cannot assign permission to a non-existent folder."})
++		return
++	}
++
+ 	perm := &models.UserPermission{
+ 		UserID:       req.UserID,
+ 		FolderPrefix: req.FolderPrefix,
