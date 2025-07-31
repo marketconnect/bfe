@@ -35,6 +35,10 @@ func main() {
 
 	router := gin.Default()
 
+	// By default, gin trusts all proxies. For security, it's better to
+	// explicitly set which proxies to trust, or trust none if not behind a proxy.
+	router.SetTrustedProxies(nil)
+
 	config := cors.DefaultConfig()
 
 	config.AllowOrigins = []string{"http://localhost:3000"}

@@ -65,6 +65,7 @@ func (h *Handler) CreateUserHandler(c *gin.Context) {
 
 	user := &models.User{
 		Username:     req.Username,
+		Alias:        req.Alias,
 		PasswordHash: string(hashedPassword),
 		IsAdmin:      req.IsAdmin,
 	}
@@ -160,7 +161,7 @@ func (h *Handler) UpdateAdminSelfHandler(c *gin.Context) {
 func (h *Handler) AssignPermissionHandler(c *gin.Context) {
 	var req models.AssignPermissionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body", "details": err.Error()})
 		return
 	}
 
@@ -174,7 +175,7 @@ func (h *Handler) AssignPermissionHandler(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "permission assigned successfully"})
+	c.JSON(http.StatusCreated, gin.H{"message": "permission assigned successfully"})
 }
 
 func (h *Handler) RevokePermissionHandler(c *gin.Context) {
@@ -245,7 +246,7 @@ func (h *Handler) ListFilesHandler(c *gin.Context) {
 	// Check if the user is allowed to access the requested path
 	isAllowed := false
 	for _, p := range permissions {
-		if strings.HasPrefix(requestedPath, p.FolderPrefix) {
+		if strings.HasPrefix(requestedPath, p.FolderPrefix) || strings.HasPrefix(p.FolderPrefix, requestedPath) {
 			isAllowed = true
 			break
 		}

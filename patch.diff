@@ -1,0 +1,42 @@
+--- a/bfe/models/models.go
++++ b/bfe/models/models.go
+@@ -1,20 +1,29 @@
+ package models
+ 
+-import "gorm.io/gorm"
++import (
++	"time"
++
++	"gorm.io/gorm"
++)
+ 
+ type User struct {
+-	gorm.Model
+-	Username     string `gorm:"uniqueIndex;not null"`
+-	Alias        string `json:"alias"`
+-	PasswordHash string `gorm:"not null" json:"-"`
+-	IsAdmin      bool   `gorm:"default:false"`
+-	Permissions  []UserPermission
++	ID           uint           `gorm:"primarykey" json:"id"`
++	CreatedAt    time.Time      `json:"createdAt"`
++	UpdatedAt    time.Time      `json:"updatedAt"`
++	DeletedAt    gorm.DeletedAt `gorm:"index" json:"-"`
++	Username     string         `gorm:"uniqueIndex;not null" json:"username"`
++	Alias        string         `json:"alias"`
++	PasswordHash string         `gorm:"not null" json:"-"`
++	IsAdmin      bool           `gorm:"default:false" json:"isAdmin"`
++	Permissions  []UserPermission `json:"permissions"`
+ }
+ 
+ type UserPermission struct {
+-	gorm.Model
+-	UserID       uint   `gorm:"not null;index"`
+-	FolderPrefix string `gorm:"not null"`
++	ID           uint      `gorm:"primarykey" json:"id"`
++	CreatedAt    time.Time `json:"createdAt"`
++	UpdatedAt    time.Time `json:"updatedAt"`
++	UserID       uint      `gorm:"not null;index" json:"userId"`
++	FolderPrefix string    `gorm:"not null" json:"folderPrefix"`
+ }
+ 
+ type LoginRequest struct {

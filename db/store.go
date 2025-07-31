@@ -38,7 +38,7 @@ func (s *GormStore) DeleteUser(userID uint) error {
 			return err
 		}
 		// Then delete the user
-		if err := tx.Delete(&models.User{Model: gorm.Model{ID: userID}}).Error; err != nil {
+		if err := tx.Delete(&models.User{ID: userID}).Error; err != nil {
 			return err
 		}
 		return nil
