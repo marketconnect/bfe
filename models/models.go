@@ -59,3 +59,8 @@ type UpdateAdminRequest struct {
 	Username string `json:"username"`
 	Password string `json:"password"`
 }
+
+type ArchiveRequest struct {
+	Keys    []string `json:"keys"`
+	Folders []string `json:"folders"`
+}

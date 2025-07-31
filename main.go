@@ -59,6 +59,7 @@ func main() {
 		{
 			// User routes
 			authedRoutes.GET("/files", handler.ListFilesHandler)
+			authedRoutes.POST("/archive", handler.DownloadArchiveHandler)
 
 			// Admin routes
 			adminRoutes := authedRoutes.Group("/admin")

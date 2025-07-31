@@ -1,6 +1,7 @@
 package api
 
 import (
+	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -287,4 +288,60 @@ func (h *Handler) ListFilesHandler(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, response)
+}
+
+func (h *Handler) DownloadArchiveHandler(c *gin.Context) {
+	userID, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	var req models.ArchiveRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return
+	}
+
+	permissions, err := h.Store.GetUserPermissions(userID.(uint))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "could not retrieve permissions"})
+		return
+	}
+
+	// --- Authorization Check ---
+	isAllowed := func(path string) bool {
+		for _, p := range permissions {
+			if strings.HasPrefix(path, p.FolderPrefix) {
+				return true
+			}
+		}
+		return false
+	}
+
+	for _, key := range req.Keys {
+		if !isAllowed(key) {
+			c.JSON(http.StatusForbidden, gin.H{"error": "access denied to file: " + key})
+			return
+		}
+	}
+	for _, folder := range req.Folders {
+		if !isAllowed(folder) {
+			c.JSON(http.StatusForbidden, gin.H{"error": "access denied to folder: " + folder})
+			return
+		}
+	}
+	// --- End Authorization Check ---
+
+	storageResp, err := h.StorageClient.GetArchive(req.Keys, req.Folders)
+	if err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to get archive from storage service", "details": err.Error()})
+		return
+	}
+	defer storageResp.Body.Close()
+
+	c.Header("Content-Type", storageResp.Header.Get("Content-Type"))
+	c.Header("Content-Disposition", storageResp.Header.Get("Content-Disposition"))
+
+	io.Copy(c.Writer, storageResp.Body)
 }
