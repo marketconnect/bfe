@@ -121,7 +121,11 @@ func (h *Handler) UpdateAdminSelfHandler(c *gin.Context) {
 	// Fetch the current admin user
 	adminUser, err := h.Store.GetUserByID(adminID.(uint))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "could not find admin user"})
+		if err == gorm.ErrRecordNotFound {
+			c.JSON(http.StatusNotFound, gin.H{"error": "admin user not found, please log in again"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "could not find admin user", "details": err.Error()})
 		return
 	}
 

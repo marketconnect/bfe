@@ -1,0 +1,15 @@
+--- a/bfe/api/handlers.go
++++ b/bfe/api/handlers.go
+@@ -95,7 +95,11 @@
+ 	// Fetch the current admin user
+ 	adminUser, err := h.Store.GetUserByID(adminID.(uint))
+ 	if err != nil {
+-		c.JSON(http.StatusInternalServerError, gin.H{"error": "could not find admin user"})
++		if err == gorm.ErrRecordNotFound {
++			c.JSON(http.StatusNotFound, gin.H{"error": "admin user not found, please log in again"})
++			return
++		}
++		c.JSON(http.StatusInternalServerError, gin.H{"error": "could not find admin user", "details": err.Error()})
+ 		return
+ 	}
+ 
