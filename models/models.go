@@ -1,19 +1,13 @@
 package models
 
-import (
-	"time"
-
-	"gorm.io/gorm"
-)
+import "time"
 
 type User struct {
 	ID           uint             `gorm:"primarykey" json:"id"`
 	CreatedAt    time.Time        `json:"createdAt"`
 	UpdatedAt    time.Time        `json:"updatedAt"`
-	DeletedAt    gorm.DeletedAt   `gorm:"index" json:"-"`
 	Username     string           `gorm:"uniqueIndex;not null" json:"username"`
 	Alias        string           `json:"alias,omitempty"`
-	Password     string           `gorm:"not null" json:"password,omitempty"`
 	PasswordHash string           `gorm:"not null" json:"-"`
 	IsAdmin      bool             `gorm:"default:false" json:"isAdmin"`
 	Permissions  []UserPermission `json:"permissions"`
@@ -53,6 +47,10 @@ type CreateUserRequest struct {
 type AssignPermissionRequest struct {
 	UserID       uint   `json:"user_id" binding:"required,gte=1"`
 	FolderPrefix string `json:"folder_prefix" binding:"required"`
+}
+
+type ResetPasswordRequest struct {
+	Password string `json:"password" binding:"required"`
 }
 
 type UpdateAdminRequest struct {

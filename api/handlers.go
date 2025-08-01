@@ -67,7 +67,6 @@ func (h *Handler) CreateUserHandler(c *gin.Context) {
 	user := &models.User{
 		Username:     req.Username,
 		Alias:        req.Alias,
-		Password:     req.Password,
 		PasswordHash: string(hashedPassword),
 		IsAdmin:      req.IsAdmin,
 	}
@@ -77,7 +76,36 @@ func (h *Handler) CreateUserHandler(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{"message": "user created successfully", "user_id": user.ID})
+	// Return the original password in the response for the admin to copy
+	c.JSON(http.StatusCreated, gin.H{"message": "user created successfully", "user_id": user.ID, "password": req.Password})
+}
+
+func (h *Handler) ResetUserPasswordHandler(c *gin.Context) {
+	userIDStr := c.Param("id")
+	userID, err := strconv.ParseUint(userIDStr, 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user ID"})
+		return
+	}
+
+	var req models.ResetPasswordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request", "details": err.Error()})
+		return
+	}
+
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to hash password"})
+		return
+	}
+
+	if err := h.Store.UpdateUserPassword(uint(userID), string(hashedPassword)); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update password", "details": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "password updated successfully", "password": req.Password})
 }
 
 func (h *Handler) ListUsersHandler(c *gin.Context) {
@@ -154,7 +182,6 @@ func (h *Handler) UpdateAdminSelfHandler(c *gin.Context) {
 			return
 		}
 		adminUser.PasswordHash = string(hashedPassword)
-		adminUser.Password = req.Password
 	}
 
 	if err := h.Store.UpdateUser(adminUser); err != nil {

@@ -69,6 +69,7 @@ func main() {
 				adminRoutes.GET("/users", handler.ListUsersHandler)
 				adminRoutes.POST("/users", handler.CreateUserHandler)
 				adminRoutes.DELETE("/users/:id", handler.DeleteUserHandler)
+				adminRoutes.POST("/users/:id/password", handler.ResetUserPasswordHandler)
 				adminRoutes.POST("/permissions", handler.AssignPermissionHandler)
 				adminRoutes.DELETE("/permissions/:id", handler.RevokePermissionHandler)
 				adminRoutes.GET("/storage/folders", handler.ListAllFoldersHandler)
@@ -110,7 +111,6 @@ func seedAdminUser(store db.Store, cfg *config.Config) {
 
 	admin := &models.User{
 		Username:     cfg.AdminUser,
-		Password:     cfg.AdminPassword,
 		PasswordHash: string(hashedPassword),
 		IsAdmin:      true,
 	}

@@ -15,6 +15,7 @@ type Store interface {
 	GetUserByUsername(username string) (*models.User, error)
 	GetAllUsers() ([]models.User, error)
 	AssignPermission(permission *models.UserPermission) error
+	UpdateUserPassword(userID uint, passwordHash string) error
 	RevokePermission(permissionID uint) error
 	GetUserPermissions(userID uint) ([]models.UserPermission, error)
 }
@@ -65,6 +66,10 @@ func (s *GormStore) GetAllUsers() ([]models.User, error) {
 
 func (s *GormStore) AssignPermission(permission *models.UserPermission) error {
 	return s.DB.Create(permission).Error
+}
+
+func (s *GormStore) UpdateUserPassword(userID uint, passwordHash string) error {
+	return s.DB.Model(&models.User{}).Where("id = ?", userID).Update("password_hash", passwordHash).Error
 }
 
 func (s *GormStore) RevokePermission(permissionID uint) error {
