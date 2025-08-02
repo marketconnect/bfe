@@ -121,10 +121,3 @@ The service uses two main database models:
 └── main.go          # Application entry point
 ```
 
-## License
-
-[Add your license here]
-
-## Contributing
-
-[Add contribution guidelines here]
